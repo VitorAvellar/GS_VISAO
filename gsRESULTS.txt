@@ -1,0 +1,190 @@
+#include<DHT.h>
+#include<Servo.h>
+
+#define ledR 13
+#define ledG 12
+#define dhtpin 2
+#define servopin1 6
+
+
+DHT dht(dhtpin, DHT22);
+
+Servo myServo1;
+
+
+bool mode = true; 
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+  myServo1.attach(servopin1);
+  pinMode(ledG, OUTPUT);
+  pinMode(ledR, OUTPUT);
+  Serial.println("Digita M ou A para escolher o modo");
+}
+
+void loop() {
+
+  if(Serial.available() > 0){
+    char comando = Serial.read();
+    if(comando == 'M'){
+      mode = false;
+      Serial.println("Modo Manual ativado");
+    }else if(comando == 'A'){
+      mode = true;
+      Serial.println("Modo Automatico ativado");
+    }else if(!mode){
+      if(comando == '1'){
+        myServo1.write(180);
+        
+      }else if(comando == '0'){
+        myServo1.write(0);
+        
+      }
+    }
+  }
+
+  if(mode){
+    int temp = dht.readTemperature();
+    if(temp < 30){
+      digitalWrite(ledG, HIGH);
+      digitalWrite(ledR, LOW);
+      myServo1.write(0);
+      
+    }else if(temp < 40){
+      digitalWrite(ledG, HIGH);
+      digitalWrite(ledR, LOW);
+      myServo1.write(0);
+      
+    }
+    }
+  }
+
+
+
+
+
+----------------------------------------------
+
+
+
+mEU CÓDIGO
+
+
+
+#include <DHT.h>
+#include <Servo.h>
+
+#define ledR 13
+#define ledG 12
+#define ledY 11 // LED amarelo
+#define dhtpin 2
+#define servopin1 6
+
+DHT dht(dhtpin, DHT22);
+Servo myServo1;
+
+// Estados
+bool modoAutomatico = true;
+bool modoReparo = false;
+
+// Controle de tempo
+unsigned long previousMillis = 0;
+bool ledState = false;
+bool servoState = false;
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+  myServo1.attach(servopin1);
+  
+  pinMode(ledG, OUTPUT);
+  pinMode(ledR, OUTPUT);
+  pinMode(ledY, OUTPUT);
+  
+  digitalWrite(ledG, LOW);
+  digitalWrite(ledR, LOW);
+  digitalWrite(ledY, LOW);
+  
+  Serial.println("Digite A (automático), M (manual), 0 (fechar), 1 (abrir), 2 (modo reparo)");
+}
+
+void loop() {
+  // Comandos via serial (simulando MQTT)
+  if (Serial.available() > 0) {
+    char comando = Serial.read();
+    
+    if (comando == 'A') {
+      modoAutomatico = true;
+      modoReparo = false;
+      Serial.println("Modo Automático ativado");
+    } else if (comando == 'M') {
+      modoAutomatico = false;
+      modoReparo = false;
+      Serial.println("Modo Manual ativado");
+    } else if (comando == '2') {
+      modoReparo = true;
+      Serial.println("Modo de Reparo ativado");
+    }
+
+    // Comandos no modo manual
+    if (!modoAutomatico && !modoReparo) {
+      if (comando == '1') {
+        myServo1.write(180);
+        Serial.println("Servo aberto manualmente");
+      } else if (comando == '0') {
+        myServo1.write(0);
+        Serial.println("Servo fechado manualmente");
+      }
+    }
+  }
+
+  // MODO DE REPARO
+  if (modoReparo) {
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= 1000) { // alterna a cada 1 segundo
+      previousMillis = currentMillis;
+      
+      // Alterna LEDs
+      ledState = !ledState;
+      digitalWrite(ledG, ledState);
+      digitalWrite(ledR, ledState);
+      digitalWrite(ledY, ledState);
+
+      // Alterna servo
+      servoState = !servoState;
+      myServo1.write(servoState ? 180 : 0);
+    }
+    return; // evita executar os outros modos enquanto está em reparo
+  }
+
+  // MODO AUTOMÁTICO
+  if (modoAutomatico) {
+    float temp = dht.readTemperature();
+    float umid = dht.readHumidity();
+
+    if (isnan(temp) || isnan(umid)) {
+      Serial.println("Erro ao ler DHT!");
+      return;
+    }
+
+    if (temp < 30 && umid >= 40 && umid <= 60) {
+      digitalWrite(ledG, HIGH);
+      digitalWrite(ledY, LOW);
+      digitalWrite(ledR, LOW);
+      myServo1.write(0); // fechado
+    } else if (temp < 40) {
+      digitalWrite(ledG, LOW);
+      digitalWrite(ledY, HIGH); // alerta
+      digitalWrite(ledR, LOW);
+      myServo1.write(0); // ainda fechado
+    } else {
+      digitalWrite(ledG, LOW);
+      digitalWrite(ledY, LOW);
+      digitalWrite(ledR, HIGH); // falha crítica
+      myServo1.write(180); // abre válvula
+    }
+  }
+}
+
+
